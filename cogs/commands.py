@@ -1,0 +1,78 @@
+from discord.ext.commands import Cog, Bot, Context, CooldownMapping, DynamicCooldownMapping, BucketType, Cooldown, check
+from sqlalchemy.ext.asyncio import AsyncSession
+from bot.utils.db import with_session
+from bot.modules import Client
+from bot.models import Command
+from discord import Message, NotFound
+
+
+
+class CommandsSyncService:
+  bot: Bot = None
+  
+  def __init__(self, bot: Bot):
+    self.bot = bot
+    self.active_commands = {}
+    self._cd = CooldownMapping.from_cooldown(1, 60, BucketType.user)
+    
+  def is_admin():
+    async def predicate(ctx: Context):
+      if ctx.author.guild_permissions.administrator:
+        return True
+      return False
+    return check(predicate)
+    
+  async def retrieve_voice_channel(self, author):
+    try:
+      state = await author.fetch_voice()
+      return bool(state.channel)
+    except NotFound:
+      return False
+  
+  async def sync_commands(self, session):
+    commands = await Command.get(session)
+    for cmd in commands:
+      self.bot.remove_command(cmd.name)
+      await self.register_command(cmd)
+  
+  async def register_command(self, command: Command):
+    async def dynamic_cmd(ctx: Context, *args):
+      clnt = Client()
+      try:
+        vs = await self.retrieve_voice_channel(ctx.author)
+        response = await clnt.ask(*args, **command.params, author=ctx.author.id, voice_activity=vs)
+        # if command.has_context:
+        #   response = response.reply.format(**self.bot.shared_context)
+        return await ctx.reply(str(response.reply))
+      except Exception as e:
+        # raise e
+        print(e)
+        return await ctx.reply(f'There was an error performing command {command.name}')
+      finally:
+        await clnt.close()
+    
+    dynamic_cmd.__name__ = command.name
+    self.bot.command(**command.cmd_opts)(dynamic_cmd)
+    self.active_commands[command.name] = dynamic_cmd
+
+
+class CommandsSyncCog(Cog):
+  def __init__(self, bot: Bot):
+    self.bot = bot
+    self.css = CommandsSyncService(bot)
+    self.create_commands()
+    
+  @Cog.listener()
+  async def on_ready(self):
+    await with_session(self.bot, self.css.sync_commands)
+    
+  def create_commands(self):
+    @self.bot.command(name='reload', description="Reloads all dynamic commands")
+    async def reload_commands(ctx, *args):
+      await with_session(self.bot, self.css.sync_commands)
+      await ctx.send('All commands have been reloaded!')
+    
+    
+
+async def setup(bot: Bot):
+  await bot.add_cog(CommandsSyncCog(bot))

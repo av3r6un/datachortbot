@@ -25,6 +25,8 @@ class GuildUser(Base):
   premium_since: Mapped[dt] = mapped_column(DateTime, nullable=True)
   xp_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
   
+  xp_history: Mapped[list["XPHistory"]] = relationship("XPHistory", back_populates="user", lazy='selectin', cascade="all, delete-orphan", uselist=True) # type: ignore
+  
   def __init__(self, uid, created_at, id, joined_at, name, **kwargs) -> None:
     self.uid = uid
     self.created_at = created_at
@@ -57,6 +59,10 @@ class GuildUser(Base):
   def to_hex(value: int = None):
     if not value: return None
     return f"#{16777215:06X}"
+  
+  async def buff(self, session, delta: int) -> None:
+    self.xp_total += delta
+    await session.commit()
 
   @property
   def json(self):
@@ -67,3 +73,23 @@ class GuildUser(Base):
       color=self.to_hex(self.color), premium_since=int(self.premium_since.timestamp()) if self.premium_since else None,
       xp_total=self.xp_total
     )
+
+
+class UserWatchDog(Base):
+  __tablename__ = 'users_watchdog'
+  
+  uid: Mapped[str] = mapped_column(String(3), primary_key=True)
+  uuid: Mapped[GuildUser] = mapped_column(String(6), ForeignKey('users.uid'), nullable=False)
+  active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+  
+  def __init__(self, uid, uuid, **kwargs) -> None:
+    self.uid = uid
+    self.uuid = uuid
+    
+  async def deactivate(self, session):
+    self.active = True
+    await session.commit()
+
+  @property
+  def json(self):
+    return dict(uid=self.uid, uuid=self.uuid, active=self.active)

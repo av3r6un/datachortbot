@@ -16,7 +16,7 @@ class BadResponse(Exception):
 class Client:
   def __init__(self):
     self.session = ClientSession(
-      base_url=f'http://localhost:{int(os.getenv("API_PORT", "8080"))}',
+      base_url=f'http://{os.getenv("API_HOST", "127.0.0.1")}:{int(os.getenv("API_PORT", "8080"))}',
       headers={'X-Department': 'DataChort Discord Bot'},
     )
     

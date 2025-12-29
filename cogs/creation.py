@@ -1,11 +1,14 @@
-from discord import Message, Guild
 from sqlalchemy.ext.asyncio import AsyncSession
 from discord.ext.commands import Cog, Bot
 from bot.utils.db import with_session
+from bot.utils import setup_logger
 from bot.models import GuildUser
+from discord import Guild
+
+logger = setup_logger('BCL', filename='bot_creation.log')
+
 
 class MemberSyncService:
-  
   @staticmethod
   async def sync_members(session: AsyncSession, _bot: Bot, guild: Guild):
     existing_members = {user.id: user.uid for user in (await GuildUser.get(session))}
@@ -18,7 +21,7 @@ class MemberSyncService:
           avatar_decoration_sku_id=m.avatar_decoration_sku_id, banner=m.banner, color=m.color, premium_since=m.premium_since
         )
         await new_member.save(session)
-        print('Welcoming new user:', m.global_name)
+        logger.info(f'Welcoming new user: {m.global_name}')
       
 
 class MemberSyncCog(Cog):

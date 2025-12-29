@@ -1,4 +1,5 @@
 from sqlalchemy import Enum, String, Boolean, JSON, Text, Integer
+from discord.ext.commands import CooldownMapping, BucketType
 from sqlalchemy.orm import Mapped, mapped_column
 from .base import Base
 import enum
@@ -50,7 +51,7 @@ class Command(Base):
   
   @property
   def cmd_opts(self):
-    return dict(name=self.name, enabled=self.enabled, help=self.help, aliases=self.alias)
+    return dict(name=self.name, enabled=self.enabled, help=self.help, aliases=self.alias, cooldown=CooldownMapping.from_cooldown(1, self.cooldown, BucketType.user))
     
   @property
   def json(self):

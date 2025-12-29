@@ -1,7 +1,8 @@
 from discord.ext.commands import Cog, Bot, Context, CooldownMapping, DynamicCooldownMapping, BucketType, Cooldown, check
+from discord.ext.commands.errors import CommandOnCooldown
 from sqlalchemy.ext.asyncio import AsyncSession
+from bot.modules import Client, check, SafeEval
 from bot.utils.db import with_session
-from bot.modules import Client
 from bot.models import Command
 from discord import Message, NotFound
 
@@ -13,6 +14,7 @@ class CommandsSyncService:
   def __init__(self, bot: Bot):
     self.bot = bot
     self.active_commands = {}
+    self.cooldowns ={}
     self._cd = CooldownMapping.from_cooldown(1, 60, BucketType.user)
     
   def is_admin():
@@ -41,18 +43,19 @@ class CommandsSyncService:
       try:
         vs = await self.retrieve_voice_channel(ctx.author)
         response = await clnt.ask(*args, **command.params, author=ctx.author.id, voice_activity=vs)
-        # if command.has_context:
-        #   response = response.reply.format(**self.bot.shared_context)
         return await ctx.reply(str(response.reply))
       except Exception as e:
-        # raise e
         print(e)
         return await ctx.reply(f'There was an error performing command {command.name}')
       finally:
         await clnt.close()
     
     dynamic_cmd.__name__ = command.name
-    self.bot.command(**command.cmd_opts)(dynamic_cmd)
+    cmd = self.bot.command(**command.cmd_opts)(dynamic_cmd)
+    @cmd.error
+    async def cooldown_error(ctx, error):
+      if isinstance(error, CommandOnCooldown):
+        return await ctx.reply(f'Command is still cooling down! Try again in `{error.retry_after:.1f}s.`')
     self.active_commands[command.name] = dynamic_cmd
 
 
@@ -61,6 +64,7 @@ class CommandsSyncCog(Cog):
     self.bot = bot
     self.css = CommandsSyncService(bot)
     self.create_commands()
+    self.api_available = False # check()
     
   @Cog.listener()
   async def on_ready(self):
@@ -75,4 +79,7 @@ class CommandsSyncCog(Cog):
     
 
 async def setup(bot: Bot):
-  await bot.add_cog(CommandsSyncCog(bot))
+  if check():
+    await bot.add_cog(CommandsSyncCog(bot))
+  else:
+    print('CommandsSyncCog skipped: API unavailable')

@@ -1,0 +1,21 @@
+PREFIX: '!'
+EMOJI_PATTERN: '(<a?:\w+:(\d+)>|[\U00010000-\U0010ffff])'
+BOT_DESCR: 'Some DataChort'
+RESERVED:
+  - 'format'
+IDENTIFIER:
+  format: 'discord'
+XP_BIAS: 5
+LEVEL_BIAS: 0.5
+XP_MESSAGE_MULTIPLIER:
+  simple_text: 1.2
+  url: 0.2
+  gif: 1
+  image: 2
+  video: 2
+  audio: 1.6
+  mention_everyone: -2
+  poll: 3
+  role_mention: 2.2
+  sticker: 2.4
+  command: 0

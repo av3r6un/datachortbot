@@ -1,0 +1,15 @@
+services:
+  discord-bot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: DataChortBot
+    restart: unless-stopped
+    env_file: config/.env
+    volumes:
+      - .:/app/bot
+    stdin_open: true
+    tty: true
+
+volumes:
+  bot_storage:

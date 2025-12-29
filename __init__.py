@@ -1,15 +1,19 @@
-from config import Settings
+from .config import Settings
 from discord.ext import commands
-import asyncio
 import discord
 import logging
 import os
 
+discord.opus._load_default()
+
+if not discord.opus.is_loaded():
+    raise RuntimeError('Opus failed to load')
+
+
 formatter = logging.Formatter('[{asctime}] [{levelname}] {name}: {message}', '%d-%m-%Y %H:%M:%S', style='{')
-handler = logging.FileHandler(filename='logs/bot.log', encoding='utf-8', mode='a')
+handler = logging.FileHandler(filename='/app/bot/logs/bot.log', encoding='utf-8', mode='a')
 
 settings = Settings()
-
 
 class Bot(commands.Bot):
   async def setup_hook(self):
@@ -25,6 +29,8 @@ class Bot(commands.Bot):
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
+intents.voice_states = True
+intents.reactions = True
 
 bot = Bot(
   command_prefix=commands.when_mentioned_or('!'),
